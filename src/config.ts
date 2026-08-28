@@ -1,3 +1,4 @@
+import { IANAZone } from "luxon";
 import { z } from "zod";
 
 import type { CalendarConfig } from "./types.js";
@@ -17,6 +18,7 @@ export interface AppConfig {
   calendars: CalendarConfig[];
   allowedHosts?: Set<string>;
   cacheTtlMs: number;
+  defaultTimezone: string;
 }
 
 export function loadConfig(env = process.env): AppConfig {
@@ -40,9 +42,15 @@ export function loadConfig(env = process.env): AppConfig {
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
 
+  const defaultTimezone = env.CALENDAR_DEFAULT_TIMEZONE ?? "America/New_York";
+  if (!IANAZone.isValidZone(defaultTimezone)) {
+    throw new Error(`CALENDAR_DEFAULT_TIMEZONE is not a valid IANA timezone: ${defaultTimezone}`);
+  }
+
   return {
     calendars,
     allowedHosts: allowedHosts?.length ? new Set(allowedHosts) : undefined,
     cacheTtlMs: asPositiveInteger(env.CALENDAR_CACHE_TTL_SECONDS, 300) * 1_000,
+    defaultTimezone,
   };
 }

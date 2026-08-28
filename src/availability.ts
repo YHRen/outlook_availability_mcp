@@ -7,7 +7,7 @@ export interface AvailabilityOptions {
   includeTentative: boolean;
 }
 
-function assertTimezone(timezone: string): void {
+export function assertTimezone(timezone: string): void {
   if (!IANAZone.isValidZone(timezone)) throw new Error(`Invalid IANA timezone: ${timezone}`);
 }
 
@@ -84,6 +84,9 @@ export function findFreeSlots(
   }
   const { hour: startHour, minute: startMinute } = parseClock(options.workingHours.start);
   const { hour: endHour, minute: endMinute } = parseClock(options.workingHours.end);
+  if (endHour * 60 + endMinute <= startHour * 60 + startMinute) {
+    throw new Error("Working-hours end must be after its start.");
+  }
   const blocked = busyDates(events, options.includeTentative);
   const slots: FreeSlot[] = [];
   const localStart = DateTime.fromJSDate(rangeStart, { zone: "utc" }).setZone(options.timezone).startOf("day");
@@ -93,7 +96,6 @@ export function findFreeSlots(
     if (!options.workingHours.weekdays.includes(day.weekday)) continue;
     const dayStart = day.set({ hour: startHour, minute: startMinute, second: 0, millisecond: 0 });
     const dayEnd = day.set({ hour: endHour, minute: endMinute, second: 0, millisecond: 0 });
-    if (dayEnd <= dayStart) throw new Error("Working-hours end must be after its start.");
 
     let cursor = Math.max(dayStart.toUTC().toMillis(), rangeStart.getTime());
     const limit = Math.min(dayEnd.toUTC().toMillis(), rangeEnd.getTime());
