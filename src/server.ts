@@ -1,12 +1,29 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { findFreeSlots, mergeBusyEvents } from "./availability.js";
+import { assertTimezone, findFreeSlots, mergeBusyEvents } from "./availability.js";
 import type { IcsCalendarSource } from "./source.js";
 
 const isoDateTime = z.string().datetime({ offset: true });
-const timezone = z.string().min(1).default("America/New_York");
 const calendarIds = z.array(z.string()).optional().default([]);
+
+const busyIntervalSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  status: z.enum(["busy", "tentative"]),
+  calendars: z.array(z.string()),
+});
+
+const freeSlotSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  durationMinutes: z.number().int(),
+});
+
+const staleCalendarsSchema = z
+  .array(z.string())
+  .optional()
+  .describe("Calendars served from an expired cache because their last refresh failed.");
 
 function parseRange(start: string, end: string): { start: Date; end: Date } {
   const parsedStart = new Date(start);
@@ -25,8 +42,9 @@ function response(data: unknown) {
   };
 }
 
-export function createServer(source: IcsCalendarSource): McpServer {
-  const server = new McpServer({ name: "calendar-availability-mcp", version: "0.1.0" });
+export function createServer(source: IcsCalendarSource, defaultTimezone = "America/New_York"): McpServer {
+  const server = new McpServer({ name: "outlook-availability-mcp", version: "0.1.0" });
+  const timezone = z.string().min(1).default(defaultTimezone);
 
   server.registerTool(
     "get_availability",
@@ -39,12 +57,26 @@ export function createServer(source: IcsCalendarSource): McpServer {
         calendars: calendarIds.describe("Optional configured calendar ids. Defaults to all calendars."),
         includeTentative: z.boolean().default(true).describe("Whether tentative events block time."),
       },
+      outputSchema: {
+        timezone: z.string(),
+        start: z.string(),
+        end: z.string(),
+        busy: z.array(busyIntervalSchema),
+        staleCalendars: staleCalendarsSchema,
+      },
     },
     async ({ start, end, timezone: zone, calendars, includeTentative }) => {
+      assertTimezone(zone);
       const range = parseRange(start, end);
-      const events = await source.events(calendars, range.start, range.end);
+      const { events, staleCalendars } = await source.events(calendars, range.start, range.end, zone);
       const busy = mergeBusyEvents(events, { timezone: zone, includeTentative });
-      return response({ timezone: zone, start, end, busy });
+      return response({
+        timezone: zone,
+        start,
+        end,
+        busy,
+        ...(staleCalendars.length ? { staleCalendars } : {}),
+      });
     },
   );
 
@@ -68,10 +100,19 @@ export function createServer(source: IcsCalendarSource): McpServer {
           })
           .default({ start: "09:00", end: "17:00", weekdays: [1, 2, 3, 4, 5] }),
       },
+      outputSchema: {
+        timezone: z.string(),
+        start: z.string(),
+        end: z.string(),
+        durationMinutes: z.number().int(),
+        slots: z.array(freeSlotSchema),
+        staleCalendars: staleCalendarsSchema,
+      },
     },
     async ({ start, end, durationMinutes, timezone: zone, calendars, includeTentative, bufferMinutes, workingHours }) => {
+      assertTimezone(zone);
       const range = parseRange(start, end);
-      const events = await source.events(calendars, range.start, range.end);
+      const { events, staleCalendars } = await source.events(calendars, range.start, range.end, zone);
       const slots = findFreeSlots(events, range.start, range.end, {
         timezone: zone,
         includeTentative,
@@ -79,7 +120,14 @@ export function createServer(source: IcsCalendarSource): McpServer {
         bufferMinutes,
         workingHours,
       });
-      return response({ timezone: zone, start, end, durationMinutes, slots });
+      return response({
+        timezone: zone,
+        start,
+        end,
+        durationMinutes,
+        slots,
+        ...(staleCalendars.length ? { staleCalendars } : {}),
+      });
     },
   );
 
@@ -88,6 +136,17 @@ export function createServer(source: IcsCalendarSource): McpServer {
     {
       description: "Return source-health and cache metadata only; it does not reveal calendar content.",
       inputSchema: {},
+      outputSchema: {
+        calendars: z.array(
+          z.object({
+            id: z.string(),
+            cached: z.boolean(),
+            stale: z.boolean(),
+            lastSuccessAt: z.string().optional(),
+            lastError: z.string().optional(),
+          }),
+        ),
+      },
     },
     async () => response({ calendars: source.health() }),
   );

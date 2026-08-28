@@ -30,6 +30,7 @@ export interface FreeSlot {
 export interface CalendarHealth {
   id: string;
   cached: boolean;
+  stale: boolean;
   lastSuccessAt?: string;
   lastError?: string;
 }
