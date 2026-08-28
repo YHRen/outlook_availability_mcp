@@ -6,8 +6,10 @@ It intentionally never returns event titles, descriptions, locations, attendees,
 
 ## Requirements
 
-- Node.js 20.6 or newer (the examples use `--env-file`, added in 20.6).
+- Node.js 20.6 or newer.
 - An HTTPS URL to an ICS calendar feed.
+
+No installation is needed: MCP clients can launch the published [`outlook-availability-mcp`](https://www.npmjs.com/package/outlook-availability-mcp) package directly with `npx`.
 
 ## Get a calendar URL (Outlook)
 
@@ -17,24 +19,6 @@ It intentionally never returns event titles, descriptions, locations, attendees,
 
 Any other provider's ICS URL works the same way as long as it is served over HTTPS on port 443.
 
-## Install
-
-```bash
-git clone https://github.com/YHRen/outlook_availability_mcp.git
-cd outlook_availability_mcp
-npm install   # also compiles dist/ via the prepare script
-```
-
-Verify it runs:
-
-```bash
-cp .env.example .env
-# Put your calendar URL in CALENDAR_ICS_URL in .env (do not commit it).
-node --env-file=.env dist/index.js
-```
-
-The server speaks MCP over stdio, so it will sit waiting for a client; press Ctrl-C to exit. Seeing it start without an error means the configuration is valid.
-
 ## Connect an MCP client
 
 **Claude Code:**
@@ -43,7 +27,7 @@ The server speaks MCP over stdio, so it will sit waiting for a client; press Ctr
 claude mcp add calendar-availability \
   --env CALENDAR_ICS_URL="https://outlook.office365.com/owa/calendar/<token>/calendar.ics" \
   --env CALENDAR_ALLOWED_HOSTS="outlook.office365.com" \
-  -- node /absolute/path/to/outlook_availability_mcp/dist/index.js
+  -- npx -y outlook-availability-mcp
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`) and other JSON-configured hosts:
@@ -52,8 +36,8 @@ claude mcp add calendar-availability \
 {
   "mcpServers": {
     "calendar-availability": {
-      "command": "node",
-      "args": ["/absolute/path/to/outlook_availability_mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "outlook-availability-mcp"],
       "env": {
         "CALENDAR_ICS_URL": "https://outlook.office365.com/owa/calendar/<token>/calendar.ics",
         "CALENDAR_ALLOWED_HOSTS": "outlook.office365.com"
@@ -64,6 +48,12 @@ claude mcp add calendar-availability \
 ```
 
 Personal (non-work) Microsoft accounts publish from `outlook.live.com`; set the allowlist to match your link's host.
+
+To sanity-check your calendar URL outside a client, run the server directly — it speaks MCP over stdio, so it will sit waiting for a client; starting without an error means the configuration is valid (Ctrl-C to exit):
+
+```bash
+CALENDAR_ICS_URL="https://…/calendar.ics" npx -y outlook-availability-mcp
+```
 
 ## Tools
 
@@ -104,9 +94,16 @@ A published ICS URL often acts like a bearer link: anyone with it may read the c
 ## Development
 
 ```bash
+git clone https://github.com/YHRen/outlook_availability_mcp.git
+cd outlook_availability_mcp
+npm install     # also compiles dist/ via the prepare script
+cp .env.example .env   # put your calendar URL in .env (do not commit it)
+
 npm test        # vitest, synthetic fixtures only
 npm run check   # typecheck
 npm run build   # compile to dist/
-npm run dev     # run from src/ via tsx (export the env vars yourself,
-                # or use: node --env-file=.env --import tsx src/index.ts)
+node --env-file=.env dist/index.js                  # run the built server
+node --env-file=.env --import tsx src/index.ts     # run from source
 ```
+
+To point an MCP client at a local checkout instead of the npm package, use `node /absolute/path/to/outlook_availability_mcp/dist/index.js` as the command.
