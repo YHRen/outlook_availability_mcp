@@ -9,7 +9,7 @@ It intentionally never returns event titles, descriptions, locations, attendees,
 - Node.js 20.6 or newer.
 - An HTTPS URL to an ICS calendar feed.
 
-No installation is needed: MCP clients can launch the published [`outlook-availability-mcp`](https://www.npmjs.com/package/outlook-availability-mcp) package directly with `npx`.
+No installation is needed: MCP clients can launch the server straight from this repository with `npx -y github:YHRen/outlook_availability_mcp`. The first launch clones and builds the package (expect several seconds); after that it runs from the npx cache. To get reproducible installs, pin a tag or commit, e.g. `github:YHRen/outlook_availability_mcp#v0.1.0`.
 
 ## Get a calendar URL (Outlook)
 
@@ -27,7 +27,7 @@ Any other provider's ICS URL works the same way as long as it is served over HTT
 claude mcp add calendar-availability \
   --env CALENDAR_ICS_URL="https://outlook.office365.com/owa/calendar/<token>/calendar.ics" \
   --env CALENDAR_ALLOWED_HOSTS="outlook.office365.com" \
-  -- npx -y outlook-availability-mcp
+  -- npx -y github:YHRen/outlook_availability_mcp
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`) and other JSON-configured hosts:
@@ -37,7 +37,7 @@ claude mcp add calendar-availability \
   "mcpServers": {
     "calendar-availability": {
       "command": "npx",
-      "args": ["-y", "outlook-availability-mcp"],
+      "args": ["-y", "github:YHRen/outlook_availability_mcp"],
       "env": {
         "CALENDAR_ICS_URL": "https://outlook.office365.com/owa/calendar/<token>/calendar.ics",
         "CALENDAR_ALLOWED_HOSTS": "outlook.office365.com"
@@ -47,12 +47,43 @@ claude mcp add calendar-availability \
 }
 ```
 
+**OpenAI Codex CLI** (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.calendar-availability]
+command = "npx"
+args = ["-y", "github:YHRen/outlook_availability_mcp"]
+
+[mcp_servers.calendar-availability.env]
+CALENDAR_ICS_URL = "https://outlook.office365.com/owa/calendar/<token>/calendar.ics"
+CALENDAR_ALLOWED_HOSTS = "outlook.office365.com"
+```
+
+**Google Antigravity** (agy CLI and IDE) — add to the shared `~/.gemini/config/mcp_config.json`, or `.agents/mcp_config.json` to scope it to one workspace:
+
+```json
+{
+  "mcpServers": {
+    "calendar-availability": {
+      "command": "npx",
+      "args": ["-y", "github:YHRen/outlook_availability_mcp"],
+      "env": {
+        "CALENDAR_ICS_URL": "https://outlook.office365.com/owa/calendar/<token>/calendar.ics",
+        "CALENDAR_ALLOWED_HOSTS": "outlook.office365.com"
+      }
+    }
+  }
+}
+```
+
+Other MCP hosts follow the same pattern: launch `npx -y github:YHRen/outlook_availability_mcp` over stdio with the `CALENDAR_*` environment variables set.
+
 Personal (non-work) Microsoft accounts publish from `outlook.live.com`; set the allowlist to match your link's host.
 
 To sanity-check your calendar URL outside a client, run the server directly — it speaks MCP over stdio, so it will sit waiting for a client; starting without an error means the configuration is valid (Ctrl-C to exit):
 
 ```bash
-CALENDAR_ICS_URL="https://…/calendar.ics" npx -y outlook-availability-mcp
+CALENDAR_ICS_URL="https://…/calendar.ics" npx -y github:YHRen/outlook_availability_mcp
 ```
 
 ## Tools
