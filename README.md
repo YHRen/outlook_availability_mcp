@@ -2,6 +2,8 @@
 
 A read-only [Model Context Protocol](https://modelcontextprotocol.io/) server that turns one or more ICS calendars into privacy-safe availability queries. It works with any HTTPS ICS feed; published Outlook calendar links are the primary tested source.
 
+<a href="https://asciinema.org/a/1264093" target="_blank"><img src="https://asciinema.org/a/1264093.svg" /></a>
+
 It intentionally never returns event titles, descriptions, locations, attendees, organizers, or raw calendar data — only busy/free time intervals.
 
 ## Requirements
